@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 public class Client {
     public static void main(String[] args) throws IOException{
@@ -23,16 +24,15 @@ public class Client {
         new CollectionsofPerson().doInitialization();
         DatagramChannel channel = DatagramChannel.open();
         channel.configureBlocking(false);
-        channel.bind(new InetSocketAddress("localhost",5664));
 
         //prepare
         int idset = 0;
         LinkedHashSet<Person> People = new LinkedHashSet<>();
-        File f = new File("Person.csv");
+        File f = new File(args[0]);
         if(!f.exists()){
             f.createNewFile();
         }
-        new CSVReader().ReadFile(People,"Person.csv");
+        new CSVReader().ReadFile(People,args[0]);
         CollectionsofPerson.setPeople(People);
         Iterator<Person> preiterator = People.iterator();
         Person preP;
@@ -44,7 +44,7 @@ public class Client {
         Person.idcode = idset;
 
         //send
-        CommandPackage firstset = new CommandPackage(People,"Person.csv");
+        CommandPackage firstset = new CommandPackage(People,args[0],true);
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         ObjectOutputStream outputStream = new ObjectOutputStream(buffer);
         outputStream.writeObject(firstset);
@@ -53,23 +53,31 @@ public class Client {
 
         channel.register(selector,SelectionKey.OP_READ|SelectionKey.OP_WRITE);
 
+        boolean print = true;
         set:while(selector.select() > 0){
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
             while (iterator.hasNext()){
                 SelectionKey selectionKey = iterator.next();
                 iterator.remove();
                 if(selectionKey.isReadable()){
+                    System.out.print("connected\n");
                     ByteBuffer byteBuffer = ByteBuffer.allocate(1024*10);
                     channel.receive(byteBuffer);
                     System.out.print(new String(byteBuffer.array(),0,byteBuffer.array().length));
                     byteBuffer.clear();
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
                     break set;
+                }else if(!selectionKey.isConnectable()){
+                    if(print) {
+                        System.out.print("connecting server...\n");
+                        print = false;
+                    }
                 }
             }
         }
-        
+
         CommandManager commandManager = new CommandManager();
+        boolean print1 = true;
         while (true) {
             if (selector.select() > 0) {
                 Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
@@ -77,6 +85,7 @@ public class Client {
                     SelectionKey key = iterator.next();
                     iterator.remove();
                     if (key.isWritable()) {
+                        print1 = true;
                         System.out.print("input you command:\n");
                         String[] commarg = Tools.Input().split(" ");
                         //make sure command exists
@@ -94,7 +103,7 @@ public class Client {
                                     //Packing different command and their parameters
                                     if (!command.getName().equalsIgnoreCase("executeScript")) {
                                         DatagramChannel datagramChannel = (DatagramChannel) key.channel();
-                                        commandPackage = PackCommand(commarg, commandManager, commandPackage, command,"Person.csv");
+                                        commandPackage = packcommand(commarg, commandManager, commandPackage, command,args[0]);
                                         ByteArrayOutputStream BAO = new ByteArrayOutputStream();
                                         ObjectOutputStream OS = new ObjectOutputStream(BAO);
                                         OS.writeObject(commandPackage);
@@ -103,10 +112,10 @@ public class Client {
                                         key.interestOps(SelectionKey.OP_READ);
                                     }else{
                                         DatagramChannel datagramChannel =(DatagramChannel) key.channel();
-                                        ArrayList<CommandPackage> packageList = new ArrayList<>();
-                                        ArrayList<AbstractCommand> commandList = new ArrayList<>();
-                                        ArrayList<String> commandnameList = new ArrayList<>();
-                                        ForScript(commarg,commandnameList);
+                                        List<CommandPackage> packageList = new ArrayList<>();
+                                        List<AbstractCommand> commandList = new ArrayList<>();
+                                        List<String> commandnameList = new ArrayList<>();
+                                        forscript(commarg,commandnameList);
                                         Iterator<String> iterator1 = commandnameList.iterator();
                                         while(iterator1.hasNext()){
                                             AbstractCommand abstractCommand1 ;
@@ -121,7 +130,7 @@ public class Client {
                                         Iterator<AbstractCommand> commandIterator1 = commandList.iterator();
                                         Iterator<String> stringIterator = commandnameList.iterator();
                                         while(commandIterator1.hasNext()){
-                                            packageList.add(PackCommand(stringIterator.next().split(" "),commandManager,new CommandPackage(),commandIterator1.next(),"Person.csv"));
+                                            packageList.add(packcommand(stringIterator.next().split(" "),commandManager,new CommandPackage(),commandIterator1.next(),args[0]));
                                         }
                                         CommandPackage finalone =new CommandPackage(packageList);
                                         ByteArrayOutputStream bao = new ByteArrayOutputStream();
@@ -146,6 +155,7 @@ public class Client {
                             System.out.print("No such a command, try again\n");
                         }
                     } else if (key.isReadable()) {
+                        print1 = true;
                         DatagramChannel datagramChannel = (DatagramChannel) key.channel();
                         ByteBuffer buffer1 = ByteBuffer.allocate(102400);
                         buffer1.clear();
@@ -160,13 +170,18 @@ public class Client {
                             System.out.print(Print);
                         }
                         key.interestOps(SelectionKey.OP_WRITE);
+                    }else if(!key.isConnectable()){
+                        if(print1) {
+                            System.out.print("connecting server...\n");
+                            print1 = false;
+                        }
                     }
                 }
             }
         }
     }
 
-    public static CommandPackage PackCommand(String [] commarg,CommandManager commandManager,CommandPackage commandPackage,AbstractCommand command,String FileName) throws IOException,ParaInapproException{
+    public static CommandPackage packcommand(String [] commarg,CommandManager commandManager,CommandPackage commandPackage,AbstractCommand command,String FileName) throws IOException,ParaInapproException{
         if (commarg.length == 2) {
             String name = command.getName();
             //all command don't accept any para
@@ -210,10 +225,14 @@ public class Client {
                 commandPackage = new CommandPackage(commarg, command,FileName);
             }
         } else if (commarg.length == 1) {
-            //for command Add and Addifmin
-            if(commarg[0].equalsIgnoreCase("Removegreater")||commarg[0].equalsIgnoreCase("Removebyid")||commarg[0].equalsIgnoreCase("updateid")||commarg[0].equalsIgnoreCase("removeeyecolor")){
-                throw new ParaInapproException("this command accept 1 parameter\n");
-            } else if (commarg[0].equalsIgnoreCase("add") || commarg[0].equalsIgnoreCase("addifmin")) {
+            //all commands that accept one parameter
+            String [] acceptone = {"Removegreater","Removebyid","updateid","removeeyecolor"};
+            for(String S:acceptone){
+                if(S.equalsIgnoreCase(commarg[0])){
+                    throw new ParaInapproException("this command accept 1 parameter\n");
+                }
+            }
+            if (commarg[0].equalsIgnoreCase("add") || commarg[0].equalsIgnoreCase("addifmin")) {
                 Person P = Person.PeopleCreate();
                 commandPackage = new CommandPackage(command, P,FileName);
             } else {
@@ -232,7 +251,7 @@ public class Client {
      * @return
      * @throws IOException
      */
-    public static ArrayList<String> ForScript(String [] commarg,ArrayList<String> commandnameList)throws IOException{
+    public static List<String> forscript(String [] commarg,List<String> commandnameList)throws IOException{
         commandnameList.add(commarg[0]+" "+commarg[1]);
         FileReader fileReader = new FileReader(new File(commarg[1]));
         BufferedReader bufferedReader = new BufferedReader(fileReader);
@@ -260,7 +279,7 @@ public class Client {
                 if(judge[1].equals(commarg[1])){
                     continue;
                 }else {
-                    ForScript(judge,commandnameList);
+                    forscript(judge,commandnameList);
                 }
             }
         }
