@@ -11,21 +11,6 @@ public class Server {
         new CollectionsofPerson().doInitialization();
         CommandManager manager = new CommandManager();
         DatagramSocket datagramSocket = new DatagramSocket(5555);
-        byte[] B = new byte[102400];
-        DatagramPacket dateP = new DatagramPacket(B,0,B.length);
-        datagramSocket.receive(dateP);
-        ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(dateP.getData()));
-        LinkedHashSet<Person> linkedHashSet = null;
-        try {
-            CommandPackage commandPackage =(CommandPackage) in.readObject();
-            linkedHashSet = commandPackage.getLinkedHashSet();
-        }catch (ClassNotFoundException C){
-            C.printStackTrace();
-        }
-        CollectionsofPerson.setPeople(linkedHashSet);
-        byte[] after = "now your collection is synchronized by file\n".getBytes();
-        datagramSocket.send(new DatagramPacket(after,0,after.length,dateP.getSocketAddress()));
-
 
         while (true) {
             //receive
@@ -36,7 +21,7 @@ public class Server {
             //main part
             try {
                 //deal with different command
-                runningCommand(inputStream,manager,datagramSocket,datagramPacket);
+                runningcommand(inputStream,manager,datagramSocket,datagramPacket);
             }catch (ClassNotFoundException|ParaInapproException|NullException C) {
                 manager.setOut(C.getMessage(),false);
             }
@@ -56,10 +41,13 @@ public class Server {
         return newone;
     }
 
-    public static void runningCommand(ObjectInputStream inputStream,CommandManager manager,DatagramSocket datagramSocket,DatagramPacket datagramPacket)throws ClassNotFoundException,NullException,IOException{
+    public static void runningcommand(ObjectInputStream inputStream,CommandManager manager,DatagramSocket datagramSocket,DatagramPacket datagramPacket)throws ClassNotFoundException,NullException,IOException{
         CommandPackage commandPackage = (CommandPackage) inputStream.readObject();
         if (commandPackage != null) {
-            if (commandPackage.getList()==null) {
+            if(commandPackage.isSet()){
+                CollectionsofPerson.setPeople(commandPackage.getLinkedHashSet());
+                manager.setOut("Your collection is synchronized by file\n",false);
+            } else if (commandPackage.getList()==null) {
                 AbstractCommand command = commandPackage.getAbstractCommand();
                 new History().getHistory().add(command.getName() + "\n");
                 if (command.getName().equalsIgnoreCase("exit")) {
@@ -75,7 +63,7 @@ public class Server {
                 }
             }else{
                 String S = "";
-                ArrayList<CommandPackage> list = commandPackage.getList();
+                List<CommandPackage> list = commandPackage.getList();
                 Iterator<CommandPackage> iterator = list.iterator();
                 while(iterator.hasNext()){
                     CommandPackage used = iterator.next();
