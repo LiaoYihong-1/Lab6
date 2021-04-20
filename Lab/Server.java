@@ -3,8 +3,6 @@ import Collection.*;
 import Command.*;
 import java.io.*;
 import java.net.*;
-import java.nio.channels.DatagramChannel;
-import java.nio.channels.Selector;
 import java.util.*;
 
 public class Server {
@@ -12,10 +10,10 @@ public class Server {
         //initialize collection of people
         new CollectionsofPerson().doInitialization();
         CommandManager manager = new CommandManager();
-        DatagramSocket Set = new DatagramSocket(5555);
+        DatagramSocket datagramSocket = new DatagramSocket(5555);
         byte[] B = new byte[102400];
         DatagramPacket dateP = new DatagramPacket(B,0,B.length);
-        Set.receive(dateP);
+        datagramSocket.receive(dateP);
         ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(dateP.getData()));
         LinkedHashSet<Person> linkedHashSet = null;
         try {
@@ -26,11 +24,10 @@ public class Server {
         }
         CollectionsofPerson.setPeople(linkedHashSet);
         byte[] after = "now your collection is synchronized by file\n".getBytes();
-        Set.send(new DatagramPacket(after,0,after.length,dateP.getSocketAddress()));
-        Set.close();
+        datagramSocket.send(new DatagramPacket(after,0,after.length,dateP.getSocketAddress()));
+
 
         while (true) {
-            DatagramSocket datagramSocket = new DatagramSocket(5555);
             //receive
             byte[] buffer = new byte[102400];
             DatagramPacket datagramPacket = new DatagramPacket(buffer, 0, buffer.length);
@@ -48,7 +45,6 @@ public class Server {
             byte [] data = manager.getOut().getBytes();
             DatagramPacket send = new DatagramPacket(data,data.length,datagramPacket.getSocketAddress());
             datagramSocket.send(send);
-            datagramSocket.close();
         }
     }
 
