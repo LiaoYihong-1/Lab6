@@ -63,7 +63,7 @@ public class Client {
                     channel.receive(byteBuffer);
                     System.out.print(new String(byteBuffer.array(),0,byteBuffer.array().length));
                     byteBuffer.clear();
-                    selectionKey.interestOpsOr(SelectionKey.OP_WRITE);
+                    selectionKey.interestOps(SelectionKey.OP_WRITE);
                     break set;
                 }
             }
