@@ -1,5 +1,4 @@
 package Lab;
-import CSV.CSVReader;
 import Collection.*;
 import Command.*;
 import Tools.Tools;
@@ -16,7 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 public class Client {
-    public static void main(String[] args) throws IOException{
+    public static void main(String[] args) throws IOException,ClassNotFoundException{
         Selector selector = Selector.open();
         //initialize id with file, make sure the property of id
 
@@ -25,30 +24,13 @@ public class Client {
         DatagramChannel channel = DatagramChannel.open();
         channel.configureBlocking(false);
 
-        //prepare
-        int idset = 0;
-        LinkedHashSet<Person> People = new LinkedHashSet<>();
-        File f = new File(args[0]);
-        if(!f.exists()){
-            f.createNewFile();
-        }
-        new CSVReader().ReadFile(People,args[0]);
-        CollectionsofPerson.setPeople(People);
-        Iterator<Person> preiterator = People.iterator();
-        Person preP;
-        while(preiterator.hasNext()){
-            if(idset <= (preP = preiterator.next()).getId()){
-                idset = preP.getId();
-            }
-        }
-        Person.idcode = idset;
-
         //send
-        CommandPackage firstset = new CommandPackage(People,args[0],true);
+        InetSocketAddress inetSocketAddress = new InetSocketAddress(args[0],Integer.parseInt(args[1]));
+        CommandPackage firstset = new CommandPackage(args[2],true);
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         ObjectOutputStream outputStream = new ObjectOutputStream(buffer);
         outputStream.writeObject(firstset);
-        channel.send(ByteBuffer.wrap(buffer.toByteArray(), 0, buffer.toByteArray().length), new InetSocketAddress("localhost", 5555));
+        channel.send(ByteBuffer.wrap(buffer.toByteArray(), 0, buffer.toByteArray().length), inetSocketAddress);
         outputStream.close();
 
         channel.register(selector,SelectionKey.OP_READ|SelectionKey.OP_WRITE);
@@ -61,10 +43,19 @@ public class Client {
                 iterator.remove();
                 if(selectionKey.isReadable()){
                     System.out.print("connected\n");
-                    ByteBuffer byteBuffer = ByteBuffer.allocate(1024*10);
-                    channel.receive(byteBuffer);
-                    System.out.print(new String(byteBuffer.array(),0,byteBuffer.array().length));
-                    byteBuffer.clear();
+                    System.out.printf("The IP of server is %s\n",inetSocketAddress.getHostString());
+                    System.out.printf("The port of server is %d\n",inetSocketAddress.getPort());
+                    DatagramChannel datagramChannel = (DatagramChannel) selectionKey.channel();
+                    ByteBuffer buffer1 = ByteBuffer.allocate(102400);
+                    buffer1.clear();
+                    datagramChannel.receive(buffer1);
+                    buffer1.flip();
+                    ByteArrayInputStream byteArrayInputStream =new ByteArrayInputStream(buffer1.array(),0,buffer1.array().length);
+                    ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
+                    FirstResponse firstResopne = (FirstResponse) objectInputStream.readObject();
+                    System.out.print(firstResopne.getManagerout());
+                    CollectionsofPerson.setPeople(firstResopne.getPeople());
+                    objectInputStream.close();
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
                     break set;
                 }else if(!selectionKey.isConnectable()){
@@ -72,6 +63,7 @@ public class Client {
                         System.out.print("connecting server...\n");
                         print = false;
                     }
+                    channel.send(ByteBuffer.wrap(buffer.toByteArray(), 0, buffer.toByteArray().length), inetSocketAddress);
                 }
             }
         }
@@ -103,11 +95,11 @@ public class Client {
                                     //Packing different command and their parameters
                                     if (!command.getName().equalsIgnoreCase("executeScript")) {
                                         DatagramChannel datagramChannel = (DatagramChannel) key.channel();
-                                        commandPackage = packcommand(commarg, commandManager, commandPackage, command,args[0]);
+                                        commandPackage = packcommand(commarg, commandManager, commandPackage, command,args[2]);
                                         ByteArrayOutputStream BAO = new ByteArrayOutputStream();
                                         ObjectOutputStream OS = new ObjectOutputStream(BAO);
                                         OS.writeObject(commandPackage);
-                                        datagramChannel.send(ByteBuffer.wrap(BAO.toByteArray(), 0, BAO.toByteArray().length), new InetSocketAddress("localhost", 5555));
+                                        datagramChannel.send(ByteBuffer.wrap(BAO.toByteArray(), 0, BAO.toByteArray().length), inetSocketAddress);
                                         OS.close();
                                         key.interestOps(SelectionKey.OP_READ);
                                     }else{
@@ -130,13 +122,13 @@ public class Client {
                                         Iterator<AbstractCommand> commandIterator1 = commandList.iterator();
                                         Iterator<String> stringIterator = commandnameList.iterator();
                                         while(commandIterator1.hasNext()){
-                                            packageList.add(packcommand(stringIterator.next().split(" "),commandManager,new CommandPackage(),commandIterator1.next(),args[0]));
+                                            packageList.add(packcommand(stringIterator.next().split(" "),commandManager,new CommandPackage(),commandIterator1.next(),args[2]));
                                         }
                                         CommandPackage finalone =new CommandPackage(packageList);
                                         ByteArrayOutputStream bao = new ByteArrayOutputStream();
                                         ObjectOutputStream oos = new ObjectOutputStream(bao);
                                         oos.writeObject(finalone);
-                                        datagramChannel.send(ByteBuffer.wrap(bao.toByteArray(),0,bao.toByteArray().length),new InetSocketAddress("localhost",5555));
+                                        datagramChannel.send(ByteBuffer.wrap(bao.toByteArray(),0,bao.toByteArray().length),inetSocketAddress);
                                         oos.close();
                                         key.interestOps(SelectionKey.OP_READ);
                                     }
@@ -258,14 +250,13 @@ public class Client {
         String s;
         boolean found = false;
         while((s = bufferedReader.readLine())!=null){
-            AbstractCommand abstractCommand1;
             String [] judge = s.split(" ");
             if(judge.length>=3){
                 throw new ParaInapproException("Make sure that your commands in a proper format\n");
             }
             Iterator<AbstractCommand> iterator1 = new CommandManager().getCommands().iterator();
             while(iterator1.hasNext()){
-                if((abstractCommand1 = iterator1.next()).getName().equalsIgnoreCase(judge[0])){
+                if((iterator1.next()).getName().equalsIgnoreCase(judge[0])){
                     found = true;
                     break;
                 }
@@ -275,12 +266,8 @@ public class Client {
             }
             if(!judge[0].equalsIgnoreCase("executescript")) {
                 commandnameList.add(s);
-            }else {
-                if(judge[1].equals(commarg[1])){
-                    continue;
-                }else {
-                    forscript(judge,commandnameList);
-                }
+            }else if(!judge[1].equals(commarg[1])){
+                forscript(judge,commandnameList);
             }
         }
         return commandnameList;
