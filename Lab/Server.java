@@ -15,7 +15,7 @@ public class Server {
         int port = Integer.parseInt(args[0]);
         DatagramSocket datagramSocket = new DatagramSocket(port);
 
-        boolean connect = true;
+        //boolean connect = true;
         while (true) {
             //receive
             byte[] buffer = new byte[102400];
@@ -27,7 +27,8 @@ public class Server {
                 //deal with different command
                 CommandPackage commandPackage = (CommandPackage) inputStream.readObject();
                 if (commandPackage != null) {
-                    if(commandPackage.isSet()&connect){
+                    //first load file
+                    if(commandPackage.isSet()){
                         LinkedHashSet<Person> people = new LinkedHashSet<>();
                         File F = new File(commandPackage.getFileName());
                         if(!F.exists()){
@@ -39,7 +40,6 @@ public class Server {
                         System.out.printf("The port of client is %d\n",datagramPacket.getPort());
                         CollectionsofPerson.setPeople(people);
                         manager.setOut("Your collection is synchronized by file\n",false);
-                        connect = false;
                         FirstResponse response = new FirstResponse(people,manager.getOut());
                         ByteArrayOutputStream BAO = new ByteArrayOutputStream();
                         ObjectOutputStream OOS = new ObjectOutputStream(BAO);
@@ -49,6 +49,7 @@ public class Server {
                         System.out.print(manager.getOut());
                         System.out.print("\n");
                         OOS.close();
+                        //for commands except executescript
                     } else if (commandPackage.getList()==null&!commandPackage.isSet()) {
                         AbstractCommand command = commandPackage.getAbstractCommand();
                         new History().getHistory().add(command.getName() + "\n");
@@ -68,6 +69,7 @@ public class Server {
                         datagramSocket.send(send);
                         System.out.print(manager.getOut());
                         System.out.print("\n");
+                        //for command executescript
                     }else if(!commandPackage.isSet()){
                         StringBuilder S = new StringBuilder();
                         List<CommandPackage> list = commandPackage.getList();
