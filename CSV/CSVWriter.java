@@ -1,6 +1,7 @@
 package CSV;
 
 import Collection.Person;
+
 import java.io.*;
 import java.util.LinkedHashSet;
 
@@ -10,26 +11,28 @@ import java.util.LinkedHashSet;
 public class CSVWriter {
 
     /**
-     *
      * @param linkedHashSet write file to
-     * @param path File
+     * @param path          File
      * @throws IOException by File and readline()
      */
-    public void WriterToFile(LinkedHashSet<Person> linkedHashSet,String path) throws IOException{
-        File file=new File(path);
+    public void writetofile(LinkedHashSet<Person> linkedHashSet, String path) throws IOException {
+        File file = new File(path);
         String firstline;
-        BufferedReader bufferedReader=new BufferedReader(new FileReader(file));
-        String addfirstline="id,name,haircolor,eyecolor,height,location,x,y,z,creationdate,birthday\n";
-        BufferedOutputStream BOS=new BufferedOutputStream(new FileOutputStream(file));
-        firstline=bufferedReader.readLine();
-        if(firstline==null||!(firstline.equals("id,name,haircolor,eyecolor,height,location,x,y,z,creationdate,birthday"))){
+        BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
+        String addfirstline = "id,name,haircolor,eyecolor,height,location,x,y,z,creationdate,birthday\n";
+        BufferedOutputStream BOS = new BufferedOutputStream(new FileOutputStream(file));
+        firstline = bufferedReader.readLine();
+        if (firstline == null || !(firstline.equals("id,name,haircolor,eyecolor,height,location,x,y,z,creationdate,birthday"))) {
             BOS.write(addfirstline.getBytes());
             BOS.flush();
         }
-        for (Person person : linkedHashSet) {
-            BOS.write(person.toString().getBytes());
+        if(linkedHashSet!=null) {
+            for (Person person : linkedHashSet) {
+                BOS.write(person.toString().getBytes());
+            }
         }
         bufferedReader.close();
         BOS.close();
+        //return linkedHashSet;
     }
 }
