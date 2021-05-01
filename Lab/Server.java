@@ -12,10 +12,12 @@ public class Server {
         //initialize collection of people
         new CollectionsofPerson().doInitialization();
         CommandManager manager = new CommandManager();
-        int port = Integer.parseInt(args[0]);
+        //int port = Integer.parseInt(args[0]);
+        int port = 5555;
         DatagramSocket datagramSocket = new DatagramSocket(port);
 
-        //boolean connect = true;
+        //make sure every request of initialization just be answered one time
+        LinkedHashSet<Integer> ports = new LinkedHashSet<>();
         while (true) {
             //receive
             byte[] buffer = new byte[102400];
@@ -28,7 +30,9 @@ public class Server {
                 CommandPackage commandPackage = (CommandPackage) inputStream.readObject();
                 if (commandPackage != null) {
                     //first load file
-                    if(commandPackage.isSet()){
+                    if(commandPackage.isSet()&!ports.contains(datagramPacket.getPort())){
+                        //newport = oldport;
+                        ports.add(datagramPacket.getPort());
                         LinkedHashSet<Person> people = new LinkedHashSet<>();
                         File F = new File(commandPackage.getFileName());
                         if(!F.exists()){
