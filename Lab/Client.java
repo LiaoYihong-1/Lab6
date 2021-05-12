@@ -67,6 +67,13 @@ public class Client {
                 }
             }
         }
+        
+       for(Person P: new CollectionsofPerson().getPeople()){
+            if(P.getId()>Person.getidcode()){
+                Person.setIdcode(P.getId());
+            }
+        }
+
 
         CommandManager commandManager = new CommandManager();
         boolean print1 = true;
