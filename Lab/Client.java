@@ -154,26 +154,22 @@ public class Client {
                             System.out.print("No such a command, try again\n");
                         }
                     } else if (key.isReadable()) {
-                        print1 = true;
                         DatagramChannel datagramChannel = (DatagramChannel) key.channel();
                         ByteBuffer buffer1 = ByteBuffer.allocate(102400);
                         buffer1.clear();
                         datagramChannel.receive(buffer1);
                         buffer1.flip();
-                        String E = new String(buffer1.array(), 0, 4, StandardCharsets.UTF_8);
-                        String Print = new String(buffer1.array());
-                        if (E.equalsIgnoreCase("Exit")) {
+                        ObjectInputStream objectInputStream = new ObjectInputStream(new ByteArrayInputStream(buffer1.array()));
+                        Response response = (Response) objectInputStream.readObject();
+                        //String E = new String(buffer1.array(), 0, 4, StandardCharsets.UTF_8);
+                        String Print = response.getManagerout();
+                        if (Print.equalsIgnoreCase("Exit")) {
                             channel.close();
                             System.exit(2);
                         } else {
                             System.out.print(Print);
                         }
                         key.interestOps(SelectionKey.OP_WRITE);
-                    }else if(!key.isConnectable()){
-                        if(print1) {
-                            System.out.print("connecting server...\n");
-                            print1 = false;
-                        }
                     }
                 }
             }
